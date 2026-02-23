@@ -32,8 +32,8 @@
     "vendorInterval": 5,
     "vendorStart": 3,
     "bossInterval": 10,
-    "eliteChance": 0.22,
-    "baseEnemyCount": 5,
+    "eliteChance": 0.12,
+    "baseEnemyCount": 4,
     "enemyCountScale": 0.6,
     "scaleMode": "exponential",
     "scaleBase": 1.12,
@@ -42,8 +42,8 @@
     "bossHPMult": 8
   },
   "economy": {
-    "scrapPerKill": 20,
-    "cellsPerKill": 7,
+    "scrapPerKill": 5,
+    "cellsPerKill": 3,
     "bossScrapMult": 10,
     "eliteScrapMult": 3
   },
@@ -68,7 +68,7 @@
     }
   },
   "stash": {
-    "baseSlots": 150,
+    "baseSlots": 56,
     "maxSlots": 200
   },
   "antiExploit": {
@@ -102,11 +102,11 @@
   },
   "exploration": {
     "bossEveryNZones": 10,
-    "mapScale": 3.0,
+    "mapScale": 5.0,
     "enemyDensityMult": 0.35,
     "eliteDensityMult": 0.5,
     "maxEnemySpawnsPerZone": 90,
-    "maxEliteSpawnsPerZone": 16,
+    "maxEliteSpawnsPerZone": 6,
     "enemySpawnMinDistBetween": 190,
     "enemySpawnMinDistFromSpawn": 360,
     "enemySpawnMinDistFromExit": 240,
