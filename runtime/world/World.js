@@ -254,6 +254,58 @@ export const World = {
         this.onPortalEnter(portal);
       }
     }
+
+    // ── Player vs Obstacle collision (pushback + mine detonation) ──
+    const pRadius = player.radius || 15;
+    const obstacles = this.currentZone.obstacles;
+    if (obstacles) {
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        if (!obs || obs.destroyed) continue;
+
+        const dx = player.x - obs.x;
+        const dy = player.y - obs.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = pRadius + (obs.radius || 30);
+
+        if (dist < minDist && dist > 0.1) {
+          if (obs.type === 'mine') {
+            // MINE DETONATION
+            const { Player: PlayerMod, Particles: ParticlesMod } = State.modules;
+            const dmg = obs.damage || 15;
+            if (PlayerMod) PlayerMod.takeDamage(dmg);
+            if (ParticlesMod) {
+              ParticlesMod.explosion(obs.x, obs.y, '#ff4400', 18);
+              ParticlesMod.ring(obs.x, obs.y, '#ffcc00', 45);
+              if (ParticlesMod.screenShake != null) ParticlesMod.screenShake = Math.max(ParticlesMod.screenShake || 0, 5);
+            }
+            obs.destroyed = true;
+            // Splash damage to nearby enemies
+            for (const e of State.enemies) {
+              if (e.dead) continue;
+              const eDist = Math.hypot(e.x - obs.x, e.y - obs.y);
+              if (eDist < 100) {
+                const { Enemies: EnemiesMod } = State.modules;
+                if (EnemiesMod) EnemiesMod.damage(e, dmg * 0.6, false);
+              }
+            }
+          } else {
+            // SOLID OBSTACLE: push player out
+            const overlap = minDist - dist;
+            const nx = dx / dist;
+            const ny = dy / dist;
+            player.x += nx * overlap;
+            player.y += ny * overlap;
+            // Dampen velocity into the obstacle
+            const dot = player.vx * nx + player.vy * ny;
+            if (dot < 0) {
+              player.vx -= nx * dot * 0.8;
+              player.vy -= ny * dot * 0.8;
+            }
+          }
+        }
+      }
+    }
     
     // Enemy AI (patrol/aggro/return) is handled in Enemies.update() for exploration mode.
     

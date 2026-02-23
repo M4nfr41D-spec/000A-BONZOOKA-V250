@@ -291,6 +291,9 @@ const Game = {
     
     // Draw player
     Player.draw(ctx);
+
+    // Draw drone companion
+    Player.drawDrone(ctx);
     
     // Draw particles
     Particles.draw(ctx);

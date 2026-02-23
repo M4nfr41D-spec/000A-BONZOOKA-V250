@@ -74,6 +74,24 @@ export const Input = {
       case 'ShiftRight':
         input.shift = true;
         break;
+      case 'KeyG': {
+        // Cycle drone type: combat → shield → repair → off → combat
+        const drone = State.player.drone;
+        if (!drone) break;
+        const types = ['combat', 'shield', 'repair'];
+        if (drone.active) {
+          const idx = types.indexOf(drone.type);
+          if (idx >= types.length - 1) {
+            drone.active = false; // cycle off
+          } else {
+            drone.type = types[idx + 1];
+          }
+        } else {
+          drone.active = true;
+          drone.type = 'combat';
+        }
+        break;
+      }
     }
   },
   

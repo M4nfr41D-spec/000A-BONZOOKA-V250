@@ -68,28 +68,29 @@
 
 ---
 
-## &#x1F527; PHASE 4: Combat Systems (NEXT)
+## &#x2705; PHASE 4: Combat Systems (DONE - v2.6.0)
 
 ### 4.1 Collision System
-- [ ] Player vs Obstacles (slide/bounce)
-- [ ] Bullets vs Obstacles (destroy/block)
-- [ ] Enemy vs Obstacles (pathfinding)
-- [ ] Mine explosion on contact
-- [ ] Destroyable asteroids (drop scrap)
+- [x] Player vs Obstacles (slide/pushback with velocity dampening)
+- [x] Bullets vs Obstacles (destroy asteroids, drop scrap) - was v2.4
+- [x] Mine explosion on player proximity (damage + splash to enemies)
+- [x] Solid obstacle pushback (asteroids, pillars, debris)
 
-### 4.2 Enemy AI Improvements
-- [ ] Aggro radius detection
-- [ ] Chase + disengage behavior
-- [ ] Boss phase transitions (HP thresholds)
-- [ ] Boss add spawning
-- [ ] Group coordination (pack AI)
+### 4.2 Boss Phase System
+- [x] HP-threshold phase transitions (N phases, evenly spaced)
+- [x] Phase change VFX (ring + flash + screen shake)
+- [x] Shield phase ability (80% damage reduction, 4s duration)
+- [x] Add spawning on phase change + periodic (every 8s in phase 3+)
+- [x] Enrage on final phase (+35% speed, +40% damage, -40% fire interval)
+- [x] Boss shield/enrage visual overlays
 
-### 4.3 Drone System (Player Companion)
-- [ ] Drone item slot
-- [ ] Combat drone (auto-fire at nearest)
-- [ ] Shield drone (absorb hits)
-- [ ] Repair drone (heal over time)
-- [ ] Drone visual: small orbiting sprite
+### 4.3 Drone Companion System
+- [x] Combat drone (orbiting auto-fire at nearest, 25% player damage)
+- [x] Shield drone (absorbs nearby enemy bullets)
+- [x] Repair drone (heals 2% max HP per second)
+- [x] Visual: type-specific shapes + connection line
+- [x] G key to cycle: Combat > Shield > Repair > Off
+
 
 ---
 
@@ -275,6 +276,7 @@ bonzookaa/
 | v2.4.0 | 2026-02-23 | Infinite zones, emoji HTML fix, UI overflow |
 | v2.4.1 | 2026-02-23 | JSON emoji decode, hold-repeat, stash refresh |
 | v2.5.0 | 2026-02-23 | Full visual overhaul (ship, bullets, particles, enemies, portals, compact UI) |
+| v2.6.0 | 2026-02-23 | Combat systems: obstacle collision, boss phases, drone companion |
 
 ---
 

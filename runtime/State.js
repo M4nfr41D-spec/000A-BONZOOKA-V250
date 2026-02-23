@@ -120,7 +120,17 @@ export const State = {
     
     // Cooldowns
     fireCooldown: 0,
-    shieldRegenDelay: 0
+    shieldRegenDelay: 0,
+
+    // Drone companion
+    drone: {
+      active: true,
+      type: 'combat',  // combat, shield, repair
+      x: 0, y: 0,
+      damagePct: 0.25,
+      fireRate: 0.5,
+      healPct: 0.02
+    }
   },
   
   // Input state

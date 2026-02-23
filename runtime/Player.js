@@ -98,6 +98,9 @@ export const Player = {
       const by = p.y - Math.sin(p.angle) * 18;
       Particles.trail(bx, by, '#00ccff', 2);
     }
+
+    // Update drone companion
+    this.updateDrone(dt);
   },
 
   fire() {
@@ -169,6 +172,142 @@ export const Player = {
 
   isDead() {
     return State.player.hp <= 0;
+  },
+
+  // ============ DRONE COMPANION SYSTEM ============
+  _droneAngle: 0,
+  _droneFireTimer: 0,
+
+  updateDrone(dt) {
+    const p = State.player;
+    const drone = p.drone;
+    if (!drone || !drone.active) return;
+
+    // Orbit around player
+    const orbitSpeed = drone.type === 'shield' ? 1.5 : 2.2;
+    this._droneAngle += dt * orbitSpeed;
+    const orbitR = 45;
+    drone.x = p.x + Math.cos(this._droneAngle) * orbitR;
+    drone.y = p.y + Math.sin(this._droneAngle) * orbitR;
+
+    if (drone.type === 'combat') {
+      // Auto-fire at nearest enemy
+      this._droneFireTimer -= dt;
+      if (this._droneFireTimer <= 0) {
+        let nearest = null;
+        let nearDist = 350; // max range
+        for (const e of State.enemies) {
+          if (e.dead) continue;
+          const d = Math.hypot(e.x - drone.x, e.y - drone.y);
+          if (d < nearDist) { nearDist = d; nearest = e; }
+        }
+        if (nearest) {
+          const ang = Math.atan2(nearest.y - drone.y, nearest.x - drone.x);
+          const spd = 500;
+          Bullets.spawn({
+            x: drone.x, y: drone.y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            damage: Math.max(1, Math.floor(p.damage * (drone.damagePct || 0.25))),
+            piercing: 0,
+            isPlayer: true,
+            crit: false,
+            bulletType: 'gatling'
+          });
+          this._droneFireTimer = drone.fireRate || 0.5;
+        }
+      }
+    } else if (drone.type === 'shield') {
+      // Absorb nearby enemy bullets
+      for (let i = State.enemyBullets.length - 1; i >= 0; i--) {
+        const b = State.enemyBullets[i];
+        const d = Math.hypot(b.x - drone.x, b.y - drone.y);
+        if (d < 20) {
+          State.enemyBullets.splice(i, 1);
+          drone.absorbed = (drone.absorbed || 0) + 1;
+          // Small flash
+          Particles.spawn(b.x, b.y, 'muzzle');
+        }
+      }
+    } else if (drone.type === 'repair') {
+      // Heal player over time
+      drone._healTimer = (drone._healTimer || 0) + dt;
+      if (drone._healTimer >= 1) {
+        drone._healTimer = 0;
+        const healAmt = Math.max(1, Math.floor(p.maxHP * (drone.healPct || 0.02)));
+        if (p.hp < p.maxHP) {
+          p.hp = Math.min(p.maxHP, p.hp + healAmt);
+          Particles.trail(drone.x, drone.y, '#00ff88', 3);
+        }
+      }
+    }
+  },
+
+  drawDrone(ctx) {
+    const p = State.player;
+    const drone = p.drone;
+    if (!drone || !drone.active) return;
+
+    const t = performance.now() * 0.001;
+    const dx = drone.x;
+    const dy = drone.y;
+
+    ctx.save();
+    ctx.translate(dx, dy);
+
+    if (drone.type === 'combat') {
+      // Small aggressive triangle
+      ctx.rotate(this._droneAngle * 2);
+      ctx.fillStyle = '#ff8844';
+      ctx.shadowColor = '#ff6622';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(0, -8); ctx.lineTo(-6, 6); ctx.lineTo(6, 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (drone.type === 'shield') {
+      // Blue hex shield icon
+      ctx.rotate(t * 1.5);
+      ctx.strokeStyle = '#44aaff';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#44aaff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        i === 0 ? ctx.moveTo(Math.cos(a) * 8, Math.sin(a) * 8)
+          : ctx.lineTo(Math.cos(a) * 8, Math.sin(a) * 8);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    } else if (drone.type === 'repair') {
+      // Green cross
+      ctx.rotate(t);
+      ctx.fillStyle = '#44ff88';
+      ctx.shadowColor = '#00ff44';
+      ctx.shadowBlur = 6;
+      ctx.fillRect(-7, -2, 14, 4);
+      ctx.fillRect(-2, -7, 4, 14);
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.restore();
+
+    // Connection line to player
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.strokeStyle = drone.type === 'combat' ? '#ff8844' :
+      drone.type === 'shield' ? '#44aaff' : '#44ff88';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(dx, dy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
   },
 
   // ============ ENHANCED DRAW (v2.5.0) ============

@@ -453,6 +453,9 @@ updateRepairDroneAI(e, dt, zone) {
 },
 
 updateExplorationShooting(e, dt) {
+    // Boss ability ticks (shield timer, periodic adds)
+    if (e.isBoss) this._tickBossAbilities(e, dt);
+
     if (e.aiState !== 'aggro') return;
     const p = State.player;
     const dist = Math.hypot(p.x - e.x, p.y - e.y);
@@ -575,7 +578,10 @@ updateExplorationShooting(e, dt) {
   // Damage an enemy
   damage(enemy, amount, isCrit = false) {
     if (enemy.dead) return false;
-    
+
+    // Boss shield phase: reduce damage by 80%
+    if (enemy._shieldPhase) amount *= 0.2;
+
     enemy.hp -= amount;
     State.run.stats.damageDealt += amount;
     
@@ -592,11 +598,121 @@ updateExplorationShooting(e, dt) {
         size: isCrit ? 5 : 3
       });
     }
+
+    // ── Boss phase transitions ──
+    if (enemy.isBoss && enemy.phases) {
+      this._updateBossPhases(enemy);
+    }
     
     if (enemy.hp <= 0) {
       return this.kill(enemy);
     }
     return null;
+  },
+
+  // Boss phase system: trigger abilities at HP thresholds
+  _updateBossPhases(boss) {
+    if (!boss._phaseInit) {
+      boss._phaseInit = true;
+      boss._currentPhase = 1;
+      boss._phaseThresholds = [];
+      boss._abilityCooldowns = {};
+      boss._shieldPhase = false;
+      boss._shieldTimer = 0;
+      boss._enraged = false;
+      boss._addTimer = 0;
+      // Generate thresholds: e.g. 3 phases → [0.66, 0.33, 0] 
+      const n = boss.phases || 3;
+      for (let i = 1; i < n; i++) {
+        boss._phaseThresholds.push(1 - (i / n));
+      }
+    }
+
+    const hpPct = boss.hp / boss.maxHP;
+    const thresholds = boss._phaseThresholds;
+    let newPhase = 1;
+    for (let i = 0; i < thresholds.length; i++) {
+      if (hpPct <= thresholds[i]) newPhase = i + 2;
+    }
+
+    if (newPhase > boss._currentPhase) {
+      boss._currentPhase = newPhase;
+      this._onBossPhaseChange(boss, newPhase);
+    }
+  },
+
+  _onBossPhaseChange(boss, phase) {
+    const Particles = State.modules?.Particles;
+
+    // Phase change flash
+    if (Particles) {
+      Particles.ring(boss.x, boss.y, boss.color, boss.size * 2);
+      Particles.flash(boss.x, boss.y, '#ffffff');
+      if (Particles.screenShake != null) Particles.screenShake = Math.max(Particles.screenShake, 4);
+    }
+
+    const abilities = boss.abilities || [];
+
+    // Shield phase (phase 2+)
+    if (abilities.includes('shield_phase') && phase === 2) {
+      boss._shieldPhase = true;
+      boss._shieldTimer = 4; // 4 seconds of shield
+    }
+
+    // Spawn adds
+    if (abilities.includes('spawn_adds') || abilities.includes('drone_swarm')) {
+      this._bossSpawnAdds(boss, phase);
+    }
+
+    // Enrage on final phase
+    if (phase >= (boss.phases || 3)) {
+      boss._enraged = true;
+      boss.speed *= 1.35;
+      boss.shootInterval = Math.max(0.2, boss.shootInterval * 0.6);
+      boss.damage *= 1.4;
+    }
+  },
+
+  _bossSpawnAdds(boss, phase) {
+    const addCount = 2 + phase;
+    const World = State.modules?.World;
+    for (let i = 0; i < addCount; i++) {
+      const a = (i / addCount) * Math.PI * 2;
+      const sx = boss.x + Math.cos(a) * (boss.size * 2.5);
+      const sy = boss.y + Math.sin(a) * (boss.size * 2.5);
+      // Spawn a grunt-level add
+      const enemy = this.spawn('grunt', sx, sy, false, false);
+      if (enemy) {
+        enemy.hp *= 0.5; // weaker adds
+        enemy.maxHP *= 0.5;
+        enemy.xp = Math.floor(enemy.xp * 0.3);
+        enemy.homeX = boss.x;
+        enemy.homeY = boss.y;
+        enemy.aiState = 'aggro'; // immediately aggressive
+      }
+    }
+  },
+
+  // Called every frame for active bosses (from updateExplorationShooting)
+  _tickBossAbilities(boss, dt) {
+    if (!boss._phaseInit) return;
+
+    // Shield phase timer
+    if (boss._shieldPhase && boss._shieldTimer > 0) {
+      boss._shieldTimer -= dt;
+      if (boss._shieldTimer <= 0) {
+        boss._shieldPhase = false;
+      }
+    }
+
+    // Periodic add spawning (every 8s in aggro, phase 3+)
+    if (boss._currentPhase >= 3 && boss.aiState === 'aggro') {
+      boss._addTimer = (boss._addTimer || 0) + dt;
+      if (boss._addTimer > 8) {
+        boss._addTimer = 0;
+        this._bossSpawnAdds(boss, boss._currentPhase);
+      }
+    }
   },
   
   // Kill enemy
@@ -728,6 +844,27 @@ updateExplorationShooting(e, dt) {
       // ====== TYPE-SPECIFIC RENDERING ======
       if (e.isBoss) {
         this._drawBoss(ctx, e, t, faceAng);
+        // Boss shield phase overlay
+        if (e._shieldPhase) {
+          ctx.globalAlpha = 0.2 + Math.sin(t * 8) * 0.1;
+          ctx.strokeStyle = '#66ddff';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(0, 0, e.size * 1.3, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(100,200,255,0.08)';
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        // Boss enrage overlay
+        if (e._enraged) {
+          ctx.globalAlpha = 0.1 + Math.sin(t * 10) * 0.06;
+          ctx.fillStyle = '#ff2200';
+          ctx.beginPath();
+          ctx.arc(0, 0, e.size * 1.1, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
       } else if (e.isElite) {
         this._drawElite(ctx, e, t, faceAng);
       } else {
